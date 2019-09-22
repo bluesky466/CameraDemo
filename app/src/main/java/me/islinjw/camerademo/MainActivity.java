@@ -3,14 +3,16 @@ package me.islinjw.camerademo;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.graphics.SurfaceTexture;
+import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.TotalCaptureResult;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 import android.support.v4.content.PermissionChecker;
 import android.support.v7.app.AppCompatActivity;
-import android.view.MotionEvent;
 import android.view.TextureView;
 
 public class MainActivity extends AppCompatActivity {
@@ -23,7 +25,23 @@ public class MainActivity extends AppCompatActivity {
 
     private TextureView mPreview;
     private boolean mIsRunning;
-    private SurfaceTexture mSurfaceTexture;
+    private SurfaceTexture mCameraTexture;
+
+    private float[] mTransformMatrix = new float[16];
+
+    private CameraCaptureSession.CaptureCallback mCaptureCallback = new CameraCaptureSession.CaptureCallback() {
+        @Override
+        public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request, TotalCaptureResult result) {
+            super.onCaptureCompleted(session, request, result);
+
+            mCameraTexture.updateTexImage();
+            mCameraTexture.getTransformMatrix(mTransformMatrix);
+
+            mGLRender.render(mTransformMatrix);
+        }
+    };
+
+    private GLRender mGLRender = new GLRender();
 
     @SuppressLint("NewApi")
     @Override
@@ -37,18 +55,15 @@ public class MainActivity extends AppCompatActivity {
 
         mPreview = findViewById(R.id.preview);
         mPreview.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
-            @SuppressLint("NewApi")
             @Override
-            public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-                mSurfaceTexture = surface;
-
-                int check = PermissionChecker.checkSelfPermission(
-                        MainActivity.this, Manifest.permission.CAMERA);
-                if (check == PermissionChecker.PERMISSION_GRANTED) {
-                    openCamera();
-                } else {
-                    requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CODE);
-                }
+            public void onSurfaceTextureAvailable(final SurfaceTexture surface, final int width, final int height) {
+                mRenderHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        initRender(surface, width, height);
+                        checkPermissionsAndOpenCamera();
+                    }
+                });
             }
 
             @Override
@@ -66,11 +81,21 @@ public class MainActivity extends AppCompatActivity {
 
             }
         });
+    }
 
+    private void initRender(SurfaceTexture surface, int width, int height) {
+        mGLRender.init(this, surface, width, height);
+        mCameraTexture = new SurfaceTexture(mGLRender.getTexture());
+    }
+
+    @SuppressLint("NewApi")
+    private void checkPermissionsAndOpenCamera() {
         int check = PermissionChecker.checkSelfPermission(
-                this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-        if (PermissionChecker.PERMISSION_DENIED == check) {
-            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE);
+            MainActivity.this, Manifest.permission.CAMERA);
+        if (check == PermissionChecker.PERMISSION_GRANTED) {
+            openCamera();
+        } else {
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CODE);
         }
     }
 
@@ -80,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
                                            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (permissions[0] == Manifest.permission.CAMERA
-                && grantResults[0] == PermissionChecker.PERMISSION_GRANTED) {
+            && grantResults[0] == PermissionChecker.PERMISSION_GRANTED) {
             openCamera();
         }
     }
@@ -88,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (mSurfaceTexture != null && !mIsRunning) {
+        if (mCameraTexture != null && !mIsRunning) {
             openCamera();
         }
     }
@@ -96,11 +121,12 @@ public class MainActivity extends AppCompatActivity {
     private void openCamera() {
         mIsRunning = true;
         mCameraCapturer.openCamera(MainActivity.this,
-                mSurfaceTexture,
-                CameraCharacteristics.LENS_FACING_BACK,
-                mPreview.getWidth(),
-                mPreview.getHeight(),
-                mRenderHandler);
+            mCameraTexture,
+            CameraCharacteristics.LENS_FACING_BACK,
+            mPreview.getWidth(),
+            mPreview.getHeight(),
+            mCaptureCallback,
+            mRenderHandler);
     }
 
     @Override
@@ -114,17 +140,5 @@ public class MainActivity extends AppCompatActivity {
     private void closeCamera() {
         mIsRunning = false;
         mCameraCapturer.closeCamera();
-    }
-
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_UP) {
-            int check = PermissionChecker.checkSelfPermission(
-                    this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-            if (PermissionChecker.PERMISSION_GRANTED == check) {
-                mCameraCapturer.takePhoto();
-            }
-        }
-        return super.onTouchEvent(event);
     }
 }
