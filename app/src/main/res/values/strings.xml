@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">CameraDemo</string>
+    <string name="startrecord">触摸屏幕开始录像</string>
+    <string name="stoprecord">触摸屏幕停止录像</string>
 </resources>

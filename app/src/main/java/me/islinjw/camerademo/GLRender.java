@@ -7,6 +7,7 @@ import android.opengl.EGL14;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
+import android.opengl.EGLExt;
 import android.opengl.EGLSurface;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
@@ -134,7 +135,8 @@ public class GLRender {
         mTransformMatrixId = GLES20.glGetUniformLocation(mProgram, "matTransform");
     }
 
-    public void render(float[] matrix) {
+    public void render(float[] matrix, EGLSurface eglSurface) {
+        makeCurrent(eglSurface);
         GLES20.glUniformMatrix4fv(mTransformMatrixId, 1, false, matrix, 0);
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
@@ -143,7 +145,7 @@ public class GLRender {
 
         GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_COLOR_BUFFER_BIT);
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, ORDERS.length, GLES20.GL_UNSIGNED_SHORT, mOrder);
-        EGL14.eglSwapBuffers(mEGLDisplay, mEGLSurface);
+        EGL14.eglSwapBuffers(mEGLDisplay, eglSurface);
     }
 
     private void initEGL(SurfaceTexture surface) {
@@ -165,6 +167,10 @@ public class GLRender {
 
         mEGLSurface = createEGLSurface(new Surface(surface));
         makeCurrent(mEGLSurface);
+    }
+
+    public EGLSurface getDefaultEGLSurface() {
+        return mEGLSurface;
     }
 
     public int getTexture() {
@@ -231,6 +237,14 @@ public class GLRender {
 
     public void makeCurrent(EGLSurface eglSurface) {
         EGL14.eglMakeCurrent(mEGLDisplay, eglSurface, eglSurface, mEGLContext);
+    }
+
+    public void setPresentationTime(EGLSurface eglSurface, long nsecs) {
+        EGLExt.eglPresentationTimeANDROID(mEGLDisplay, eglSurface, nsecs);
+    }
+
+    public void destroyEGLSurface(EGLSurface surface) {
+        EGL14.eglDestroySurface(mEGLDisplay, surface);
     }
 
     public int createProgram(InputStream vShaderSource, InputStream fShaderSource) {
