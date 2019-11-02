@@ -28,10 +28,6 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-/**
- * Created by linjiawei on 2019/8/27.
- * e-mail : linjiawei3046@cvte.com
- */
 public class CameraCapturer {
     private static final String TAG = "CameraCapturer";
 
@@ -245,6 +241,7 @@ public class CameraCapturer {
                 } catch (IOException e) {
                     Log.d(TAG, "save photo failed", e);
                 }
+                image.close();
             }
         });
     }
