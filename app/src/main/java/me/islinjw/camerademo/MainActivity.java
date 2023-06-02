@@ -41,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
     private Handler mRenderHandler;
 
     private TextureView mPreview;
+    private SurfaceTexture mPreviewTexture;
     private SurfaceTexture mCameraTexture;
     private boolean mIsRunning;
 
@@ -64,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
             mGLRender.render(mTransformMatrix, mGLRender.getDefaultEGLSurface());
             if (mRecordSurface != null) {
                 mGLRender.render(mTransformMatrix, mRecordSurface);
-                mGLRender.setPresentationTime(mRecordSurface, mCameraTexture.getTimestamp());
+                mGLRender.setPresentationTime(mRecordSurface, mPreviewTexture.getTimestamp());
             }
         }
     };
@@ -86,6 +87,8 @@ public class MainActivity extends AppCompatActivity {
         mPreview.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(final SurfaceTexture surface, final int width, final int height) {
+                mPreviewTexture = surface;
+
                 mRenderHandler.post(new Runnable() {
                     @Override
                     public void run() {
